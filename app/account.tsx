@@ -1,6 +1,6 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Linking, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Linking, Dimensions, Alert } from 'react-native';
 import { Ionicons, FontAwesome, AntDesign, MaterialIcons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
@@ -18,6 +18,7 @@ const MenuItem = ({ icon, label, onPress }: { icon: any, label: string, onPress?
 
 export default function AccountScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     const navigateTo = (route: string) => {
         if (route === 'home') router.push('/home');
@@ -74,26 +75,37 @@ export default function AccountScreen() {
                     <MenuItem
                         icon={<Ionicons name="settings-outline" size={22} color="#000" />}
                         label="Settings"
+                        onPress={() => router.push('/settings')}
                     />
                     <MenuItem
                         icon={<Ionicons name="location-outline" size={22} color="#000" />}
                         label="Manage Address"
+                        onPress={() => router.push('/address')}
                     />
                     <MenuItem
                         icon={<Ionicons name="wallet-outline" size={22} color="#000" />}
-                        label="Payment history"
+                        label="Payment History"
+                        onPress={() => router.push('/payments')}
                     />
                     <MenuItem
                         icon={<Ionicons name="star-outline" size={22} color="#000" />}
                         label="Rate Us"
+                        onPress={() => {
+                            // Open Play Store
+                            Linking.openURL('market://details?id=com.prettyme.app').catch(() => {
+                                Alert.alert('Rate Us', 'Could not open Play Store. Please rate us manually!');
+                            });
+                        }}
                     />
                     <MenuItem
                         icon={<Ionicons name="document-text-outline" size={22} color="#000" />}
                         label="Terms & Conditions"
+                        onPress={() => router.push('/legal/terms')}
                     />
                     <MenuItem
                         icon={<Ionicons name="lock-closed-outline" size={22} color="#000" />}
                         label="Privacy & Policy"
+                        onPress={() => router.push('/legal/privacy')}
                     />
                 </View>
 
@@ -119,7 +131,7 @@ export default function AccountScreen() {
             </ScrollView>
 
             {/* Bottom Nav */}
-            <View style={styles.bottomNav}>
+            <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 10 }]}>
                 <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('home')}>
                     <Ionicons name="home-outline" size={24} color="#999" />
                     <Text style={styles.navText}>Home</Text>

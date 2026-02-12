@@ -1,9 +1,11 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Dimensions, Image as RNImage, Platform } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Dimensions, Platform, StatusBar, Alert, Modal, TextInput } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons, MaterialIcons, Feather, FontAwesome } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -216,8 +218,55 @@ const servicesData: Record<string, any> = {
         faqs: [
             { q: 'Will it look patchy?', a: 'No, we precisely target only the areas you want to remove.' },
         ]
-    }
+    },
 };
+
+// Add Aliases and Missing Services using existing data
+Object.assign(servicesData, {
+    'body-slimming-men': {
+        ...servicesData['body-slimming'],
+        title: 'HIFU Body Contouring (Men)',
+        heroImage: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=2070&auto=format&fit=crop'
+    },
+    'laser-facials-men': {
+        ...servicesData['laser-facials'],
+        title: 'Carbon Laser Peel (Men)',
+        heroImage: 'https://images.unsplash.com/photo-1595152772835-219674b2a8a6?q=80&w=2070&auto=format&fit=crop'
+    },
+    'face-prp-men': {
+        ...servicesData['face-prp'],
+        title: 'Hair Restoration (Men)',
+        heroImage: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=1887&auto=format&fit=crop'
+    },
+    'permanent-makeup-men': {
+        ...servicesData['permanent-makeup'],
+        title: 'Grooming (Men)',
+        heroImage: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=1887&auto=format&fit=crop'
+    },
+    'skin-rejuvenation-men': {
+        ...servicesData['laser-facials'],
+        title: 'Skin Care (Men)',
+        heroImage: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?q=80&w=2070&auto=format&fit=crop'
+    },
+    'hair-treatments-men': {
+        ...servicesData['hair-treatments'],
+        title: 'Scalp Care (Men)',
+        heroImage: 'https://images.unsplash.com/photo-1596704017254-9b121068fb31?q=80&w=1887&auto=format&fit=crop'
+    },
+    'chemical-peels-men': {
+        ...servicesData['acne'],
+        title: 'De-Tan Peels (Men)',
+        heroImage: 'https://images.unsplash.com/photo-1617325247661-675e8b37b201?q=80&w=1887&auto=format&fit=crop'
+    },
+    'skin-rejuvenation': {
+        ...servicesData['laser-facials'],
+        title: 'Skin Rejuvenation'
+    },
+    'chemical-peels': {
+        ...servicesData['acne'],
+        title: 'Chemical Peels'
+    }
+});
 
 // Fallback Data
 const defaultService = servicesData['laser-hair-reduction'];
@@ -242,154 +291,289 @@ const AccordionItem = ({ title, content }: { title: string, content?: string | R
 export default function ServiceDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams();
+    const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<'Before' | 'After'>('Before');
+    const [isBookmarked, setIsBookmarked] = useState(false);
 
     // Get Data based on ID
     const serviceId = Array.isArray(id) ? id[0] : id;
     const data = servicesData[serviceId || ''] || defaultService;
 
+    // Booking State
+    const [bookingModalVisible, setBookingModalVisible] = useState(false);
+    const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString());
+    const [selectedTime, setSelectedTime] = useState('10:00 AM');
+    const [address, setAddress] = useState('123, Green Park, New Delhi');
+
+    const handleBookNow = () => {
+        setBookingModalVisible(true);
+    };
+
+    const confirmBooking = async () => {
+        try {
+            const newBooking = {
+                id: Date.now().toString(),
+                serviceId: serviceId || 'laser-hair-reduction',
+                title: data.title,
+                price: data.price,
+                date: selectedDate,
+                time: selectedTime,
+                address: address,
+                status: 'Upcoming',
+                image: data.heroImage,
+                duration: data.duration
+            };
+
+            const existingBookingsStr = await AsyncStorage.getItem('bookings');
+            const existingBookings = existingBookingsStr ? JSON.parse(existingBookingsStr) : [];
+
+            const updatedBookings = [...existingBookings, newBooking];
+            await AsyncStorage.setItem('bookings', JSON.stringify(updatedBookings));
+
+            setBookingModalVisible(false);
+            Alert.alert('Success', 'Booking Confirmed!', [
+                { text: 'View Bookings', onPress: () => router.push('/bookings') }
+            ]);
+        } catch (error) {
+            console.error('Error saving booking:', error);
+            Alert.alert('Error', 'Failed to save booking');
+        }
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                    <Ionicons name="chevron-back" size={24} color="#000" />
-                </TouchableOpacity>
-                <TouchableOpacity>
-                    <Ionicons name="share-social-outline" size={24} color="#000" />
-                </TouchableOpacity>
-            </View>
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-                {/* Hero Image */}
-                <Image source={{ uri: data.heroImage }} style={styles.heroImage} contentFit="cover" />
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 120 }}
+                bounces={false}
+            >
+                {/* Hero Section */}
+                <View style={styles.heroContainer}>
+                    <Image source={{ uri: data.heroImage }} style={styles.heroImage} contentFit="cover" />
+                    <LinearGradient
+                        colors={['rgba(0,0,0,0.5)', 'transparent', 'rgba(0,0,0,0.1)']}
+                        style={styles.heroGradient}
+                    />
 
-                <View style={styles.content}>
-                    {/* Title Section */}
-                    <View style={styles.tagContainer}>
-                        <Text style={styles.tagText}>{data.tag}</Text>
-                    </View>
-                    <Text style={styles.title}>{data.title}</Text>
-
-                    <View style={styles.ratingRow}>
-                        <Text style={styles.ratingText}>{data.rating}</Text>
-                        <FontAwesome name="star" size={14} color="#FFD700" style={{ marginHorizontal: 4 }} />
-                        <FontAwesome name="star" size={14} color="#FFD700" style={{ marginHorizontal: 4 }} />
-                        <FontAwesome name="star" size={14} color="#FFD700" style={{ marginHorizontal: 4 }} />
-                        <FontAwesome name="star" size={14} color="#FFD700" style={{ marginHorizontal: 4 }} />
-                        <FontAwesome name="star-half-empty" size={14} color="#FFD700" style={{ marginHorizontal: 4 }} />
-                        <Text style={styles.durationText}><Ionicons name="time-outline" size={14} /> {data.duration}</Text>
-                    </View>
-
-                    {/* Price Section */}
-                    <View style={styles.priceContainer}>
-                        <View>
-                            <Text style={styles.startsFrom}>starts from</Text>
-                            <View style={styles.priceRow}>
-                                <Text style={styles.finalPrice}>₹{data.price.toLocaleString()}</Text>
-                                <View style={styles.discountBadge}>
-                                    <Text style={styles.discountText}>{data.discount}</Text>
-                                </View>
-                            </View>
-                        </View>
-                        <TouchableOpacity style={styles.addBtn}>
-                            <Text style={styles.addBtnText}>ADD</Text>
+                    {/* Header Actions */}
+                    <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+                        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                            <Ionicons name="chevron-back" size={24} color="#fff" />
                         </TouchableOpacity>
-                    </View>
-
-                    {/* Highlights */}
-                    <View style={styles.highlightsRow}>
-                        <View style={styles.highlightItem}>
-                            <Ionicons name="home-outline" size={24} color="#333" />
-                            <Text style={styles.highlightText}>At home services</Text>
-                        </View>
-                        <View style={styles.highlightItem}>
-                            <Ionicons name="medkit-outline" size={24} color="#333" />
-                            <Text style={styles.highlightText}>Dermatologist monitored</Text>
-                        </View>
-                        <View style={styles.highlightItem}>
-                            <Ionicons name="star-outline" size={24} color="#333" />
-                            <Text style={styles.highlightText}>4.7 rated Exx</Text>
+                        <View style={{ flexDirection: 'row', gap: 15 }}>
+                            <TouchableOpacity style={styles.iconBtn}>
+                                <Ionicons name="share-social-outline" size={24} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => setIsBookmarked(!isBookmarked)}>
+                                <Ionicons name={isBookmarked ? "heart" : "heart-outline"} size={24} color={isBookmarked ? "#FF4d4d" : "#fff"} />
+                            </TouchableOpacity>
                         </View>
                     </View>
+                </View>
 
-                    {/* Explained */}
+                {/* Content Body */}
+                <View style={styles.contentBody}>
+                    {/* Title & Rating */}
+                    <View style={styles.titleSection}>
+                        <View style={styles.tagBadge}>
+                            <Text style={styles.tagText}>{data.tag}</Text>
+                        </View>
+                        <Text style={styles.title}>{data.title}</Text>
+
+                        <View style={styles.metaRow}>
+                            <View style={styles.ratingBadge}>
+                                <FontAwesome name="star" size={12} color="#fff" />
+                                <Text style={styles.ratingValue}>{data.rating}</Text>
+                            </View>
+                            <Text style={styles.reviewCount}>{data.reviews} reviews</Text>
+                            <View style={styles.dotSeparator} />
+                            <Ionicons name="time-outline" size={14} color="#666" />
+                            <Text style={styles.durationVal}>{data.duration}</Text>
+                        </View>
+                    </View>
+
+                    {/* Highlights Cards */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightsContainer}>
+                        <View style={styles.highlightCard}>
+                            <View style={styles.highlightIcon}>
+                                <Ionicons name="home-outline" size={20} color="#333" />
+                            </View>
+                            <Text style={styles.highlightLabel}>At Home</Text>
+                        </View>
+                        <View style={styles.highlightCard}>
+                            <View style={styles.highlightIcon}>
+                                <Ionicons name="shield-checkmark-outline" size={20} color="#333" />
+                            </View>
+                            <Text style={styles.highlightLabel}>Safe & Secure</Text>
+                        </View>
+                        <View style={styles.highlightCard}>
+                            <View style={styles.highlightIcon}>
+                                <Ionicons name="medkit-outline" size={20} color="#333" />
+                            </View>
+                            <Text style={styles.highlightLabel}>Expert Care</Text>
+                        </View>
+                        <View style={styles.highlightCard}>
+                            <View style={styles.highlightIcon}>
+                                <Ionicons name="trophy-outline" size={20} color="#333" />
+                            </View>
+                            <Text style={styles.highlightLabel}>Top Rated</Text>
+                        </View>
+                    </ScrollView>
+
+                    <View style={styles.divider} />
+
+                    {/* Description */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionHeader}>{data.title}, Explained</Text>
-                        <Text style={styles.sectionSubHeader}>Safe, smart & skin-friendly</Text>
+                        <Text style={styles.sectionTitle}>About the Treatment</Text>
                         <Text style={styles.descriptionText}>{data.description}</Text>
                     </View>
 
                     {/* How It Works */}
                     <View style={styles.section}>
-                        <Text style={styles.sectionHeader}>How It Works</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.stepsScroll}>
+                        <Text style={styles.sectionTitle}>How It Works</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stepsScroll}>
                             {data.steps.map((step: any) => (
                                 <View key={step.id} style={styles.stepCard}>
-                                    <Image source={{ uri: step.img }} style={styles.stepImg} />
+                                    <View style={styles.stepImgContainer}>
+                                        <Image source={{ uri: step.img }} style={styles.stepImg} contentFit="cover" />
+                                        <View style={styles.stepNumberBadge}>
+                                            <Text style={styles.stepNumber}>{step.id}</Text>
+                                        </View>
+                                    </View>
                                     <View style={styles.stepFooter}>
-                                        <Text style={styles.stepTitle}>{step.title}</Text>
-                                        <Text style={styles.stepDesc}>{step.desc}</Text>
+                                        <Text style={styles.stepTitle}>{step.desc}</Text>
                                     </View>
                                 </View>
                             ))}
                         </ScrollView>
                     </View>
 
-                    {/* Accordions */}
+                    {/* Before / After */}
                     <View style={styles.section}>
-                        <AccordionItem title="Treatment frequency" content="Recommended sessions vary by individual skin type and goals. Consult our expert for a personalized plan." />
-                        <AccordionItem title="Ideal for" content="Individuals looking for professional skin solutions at home." />
-                        <AccordionItem title="Not Ideal for" content="Pregnant women or those with active skin infections." />
-                    </View>
-
-                    {/* Before/After Care */}
-                    <View style={styles.careSection}>
-                        <View style={styles.tabHeader}>
-                            <TouchableOpacity
-                                style={[styles.tabBtn, activeTab === 'Before' && styles.tabBtnActive]}
-                                onPress={() => setActiveTab('Before')}
-                            >
-                                <Text style={[styles.tabText, activeTab === 'Before' && styles.tabTextActive]}>Before Treatment</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.tabBtn, activeTab === 'After' && styles.tabBtnActive]}
-                                onPress={() => setActiveTab('After')}
-                            >
-                                <Text style={[styles.tabText, activeTab === 'After' && styles.tabTextActive]}>After Treatment</Text>
-                            </TouchableOpacity>
+                        <View style={styles.careHeader}>
+                            <Text style={styles.sectionTitle}>Essential Care</Text>
+                            <View style={styles.careToggle}>
+                                <TouchableOpacity
+                                    style={[styles.careBtn, activeTab === 'Before' && styles.careBtnActive]}
+                                    onPress={() => setActiveTab('Before')}>
+                                    <Text style={[styles.careBtnText, activeTab === 'Before' && styles.careBtnTextActive]}>Pre-Care</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.careBtn, activeTab === 'After' && styles.careBtnActive]}
+                                    onPress={() => setActiveTab('After')}>
+                                    <Text style={[styles.careBtnText, activeTab === 'After' && styles.careBtnTextActive]}>Post-Care</Text>
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                        <View style={styles.tabContent}>
+
+                        <View style={styles.careList}>
                             {activeTab === 'Before' ? (
                                 <>
-                                    <View style={styles.bulletRow}><Text style={styles.bullet}>•</Text><Text style={styles.bulletText}>Keep your skin hydrated leading up to the treatment.</Text></View>
-                                    <View style={styles.bulletRow}><Text style={styles.bullet}>•</Text><Text style={styles.bulletText}>Avoid direct sun exposure for at least one week.</Text></View>
-                                    <View style={styles.bulletRow}><Text style={styles.bullet}>•</Text><Text style={styles.bulletText}>Do not use retinol 24h before.</Text></View>
+                                    <View style={styles.careItem}><Ionicons name="checkmark-circle" size={20} color="#4CAF50" /><Text style={styles.careText}>Ensure skin is clean and dry.</Text></View>
+                                    <View style={styles.careItem}><Ionicons name="alert-circle" size={20} color="#FF9800" /><Text style={styles.careText}>Avoid direct sun exposure for 48h.</Text></View>
+                                    <View style={styles.careItem}><Ionicons name="close-circle" size={20} color="#F44336" /><Text style={styles.careText}>No harsh chemicals or retinol.</Text></View>
                                 </>
                             ) : (
                                 <>
-                                    <View style={styles.bulletRow}><Text style={styles.bullet}>•</Text><Text style={styles.bulletText}>Apply sunscreen generously if going out.</Text></View>
-                                    <View style={styles.bulletRow}><Text style={styles.bullet}>•</Text><Text style={styles.bulletText}>Drink plenty of water.</Text></View>
+                                    <View style={styles.careItem}><Ionicons name="checkmark-circle" size={20} color="#4CAF50" /><Text style={styles.careText}>Apply moisturizer regularly.</Text></View>
+                                    <View style={styles.careItem}><Ionicons name="alert-circle" size={20} color="#FF9800" /><Text style={styles.careText}>Use sunscreen outdoors.</Text></View>
                                 </>
                             )}
                         </View>
                     </View>
 
                     {/* FAQs */}
-                    {data.faqs && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionHeader}>Frequently Asked Questions</Text>
-                            <View style={{ marginTop: 10 }}>
-                                {data.faqs.map((faq: any, idx: number) => (
-                                    <AccordionItem key={idx} title={faq.q} content={faq.a} />
-                                ))}
-                            </View>
-                        </View>
-                    )}
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>FAQs</Text>
+                        {data.faqs?.map((faq: any, idx: number) => (
+                            <AccordionItem key={idx} title={faq.q} content={faq.a} />
+                        ))}
+                    </View>
 
                 </View>
             </ScrollView>
-        </SafeAreaView>
+
+            {/* Sticky Bottom Bar */}
+            <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
+                <View style={styles.priceContainer}>
+                    <Text style={styles.priceLabel}>Total Amount</Text>
+                    <View style={styles.priceRow}>
+                        <Text style={styles.priceValue}>₹{data.price.toLocaleString()}</Text>
+                    </View>
+                </View>
+                <TouchableOpacity style={styles.bookBtn} onPress={handleBookNow} activeOpacity={0.8}>
+                    <Text style={styles.bookBtnText}>Book Now</Text>
+                    <Ionicons name="arrow-forward" size={20} color="#fff" />
+                </TouchableOpacity>
+            </View>
+
+            {/* Booking Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={bookingModalVisible}
+                onRequestClose={() => setBookingModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Confirm Booking</Text>
+                            <TouchableOpacity onPress={() => setBookingModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#000" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <Text style={styles.serviceName}>{data.title}</Text>
+                            <Text style={styles.servicePrice}>Total: ₹{data.price.toLocaleString()}</Text>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Select Date</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={selectedDate}
+                                    onChangeText={setSelectedDate}
+                                    placeholder="DD/MM/YYYY"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Select Time</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={selectedTime}
+                                    onChangeText={setSelectedTime}
+                                    placeholder="e.g. 10:00 AM"
+                                />
+                            </View>
+
+                            <View style={styles.inputGroup}>
+                                <Text style={styles.label}>Address</Text>
+                                <TextInput
+                                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                                    value={address}
+                                    onChangeText={setAddress}
+                                    multiline
+                                    placeholder="Enter your full address"
+                                />
+                            </View>
+                        </ScrollView>
+
+                        <View style={styles.modalFooter}>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setBookingModalVisible(false)}>
+                                <Text style={styles.cancelBtnText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.confirmBtn} onPress={confirmBooking}>
+                                <Text style={styles.confirmBtnText}>Confirm & Pay</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+        </View>
     );
 }
 
@@ -398,189 +582,396 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
     },
-    header: {
+    // ... existing styles ...
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        padding: 25,
+        maxHeight: '80%',
+    },
+    modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 15,
-        paddingVertical: 10,
-        backgroundColor: '#fff',
+        marginBottom: 20,
     },
-    backBtn: {
-        padding: 5,
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    serviceName: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 5,
+    },
+    servicePrice: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#2D6A4F',
+        marginBottom: 20,
+    },
+    inputGroup: {
+        marginBottom: 15,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#666',
+        marginBottom: 8,
+    },
+    input: {
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 14,
+        color: '#000',
+    },
+    modalFooter: {
+        flexDirection: 'row',
+        gap: 15,
+        marginTop: 20,
+        marginBottom: 20,
+    },
+    cancelBtn: {
+        flex: 1,
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: '#f0f0f0',
+        alignItems: 'center',
+    },
+    confirmBtn: {
+        flex: 1,
+        padding: 15,
+        borderRadius: 12,
+        backgroundColor: '#000',
+        alignItems: 'center',
+    },
+    cancelBtnText: {
+        fontWeight: '600',
+        color: '#333',
+    },
+    confirmBtnText: {
+        fontWeight: '600',
+        color: '#fff',
+    },
+    heroContainer: {
+        height: 300,
+        width: '100%',
+        position: 'relative',
     },
     heroImage: {
         width: '100%',
-        height: 250,
+        height: '100%',
     },
-    content: {
-        padding: 20,
+    heroGradient: {
+        ...StyleSheet.absoluteFillObject,
     },
-    tagContainer: {
-        backgroundColor: '#eee',
+    header: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        zIndex: 10,
+    },
+    iconBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backdropFilter: 'blur(10px)', // iOS only
+    },
+
+    // Content Body
+    contentBody: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+        marginTop: -30,
+        paddingHorizontal: 20,
+        paddingTop: 30,
+    },
+    titleSection: {
+        marginBottom: 25,
+    },
+    tagBadge: {
+        backgroundColor: '#F5F5F5',
         alignSelf: 'flex-start',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 6,
         marginBottom: 10,
     },
     tagText: {
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 'bold',
         color: '#666',
         letterSpacing: 0.5,
     },
     title: {
-        fontSize: 22,
+        fontSize: 24,
         fontWeight: 'bold',
-        color: '#000',
-        marginBottom: 8,
+        color: '#1a1a1a',
+        marginBottom: 10,
+        lineHeight: 32,
     },
-    ratingRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    ratingText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginRight: 5,
-    },
-    durationText: {
-        marginLeft: 15,
-        fontSize: 12,
-        color: '#666',
-    },
-    // Price
-    priceContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 25,
-    },
-    startsFrom: {
-        fontSize: 12,
-        color: '#666',
-        marginBottom: 2,
-    },
-    priceRow: {
+    metaRow: {
         flexDirection: 'row',
         alignItems: 'center',
     },
-    finalPrice: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginRight: 10,
-    },
-    discountBadge: {
-        backgroundColor: '#E6FFEA',
-        borderColor: '#95D5B2',
-        borderWidth: 1,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
+    ratingBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#2D6A4F',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
         borderRadius: 4,
+        marginRight: 8,
+        gap: 4,
     },
-    discountText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: '#2D6A4F',
-    },
-    addBtn: {
-        backgroundColor: '#000',
-        paddingHorizontal: 30,
-        paddingVertical: 10,
-        borderRadius: 6,
-    },
-    addBtnText: {
+    ratingValue: {
         color: '#fff',
         fontWeight: 'bold',
-        fontSize: 14,
+        fontSize: 12,
     },
+    reviewCount: {
+        color: '#666',
+        fontSize: 13,
+    },
+    dotSeparator: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#ccc',
+        marginHorizontal: 10,
+    },
+    durationVal: {
+        marginLeft: 5,
+        fontSize: 13,
+        color: '#666',
+    },
+
     // Highlights
-    highlightsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 30,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-        paddingBottom: 20,
+    highlightsContainer: {
+        paddingVertical: 10,
+        gap: 15,
+        paddingRight: 20,
     },
-    highlightItem: {
+    highlightCard: {
         alignItems: 'center',
-        flex: 1,
+        marginRight: 15,
     },
-    highlightText: {
-        fontSize: 10,
-        textAlign: 'center',
-        marginTop: 5,
+    highlightIcon: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#F8F8F8', // Neutral background
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    highlightLabel: {
+        fontSize: 11,
         color: '#555',
-        lineHeight: 14,
+        fontWeight: '500',
     },
-    // Section
+
+    divider: {
+        height: 1,
+        backgroundColor: '#eee',
+        marginVertical: 25,
+    },
+
     section: {
         marginBottom: 30,
     },
-    sectionHeader: {
+    sectionTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 5,
-        color: '#000',
-    },
-    sectionSubHeader: {
-        fontSize: 12,
-        color: '#888',
+        color: '#1a1a1a',
         marginBottom: 10,
     },
     descriptionText: {
-        fontSize: 13,
+        fontSize: 14,
         color: '#555',
-        lineHeight: 20,
+        lineHeight: 22,
     },
+
     // Steps
     stepsScroll: {
-        marginTop: 10,
-        marginHorizontal: -20, // To bleed to edges
-        paddingHorizontal: 20,
+        paddingRight: 20,
+        gap: 15,
     },
     stepCard: {
-        width: 140,
-        marginRight: 15,
+        width: 160,
         backgroundColor: '#fff',
+        borderRadius: 16,
         borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 10,
-        overflow: 'hidden',
+        borderColor: '#f5f5f5', // Subtle border instead of shadow
+        marginBottom: 10,
+        marginRight: 15,
+        overflow: 'hidden', // Ensure content respects border radius
+    },
+    stepImgContainer: {
+        width: '100%',
+        height: 120,
+        position: 'relative',
     },
     stepImg: {
         width: '100%',
-        height: 100,
+        height: '100%',
+        // Border radius is handled by the container overflow: hidden
+    },
+    stepNumberBadge: {
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backdropFilter: 'blur(5px)',
+    },
+    stepNumber: {
+        fontWeight: 'bold',
+        fontSize: 12,
+        color: '#fff',
     },
     stepFooter: {
-        padding: 10,
+        padding: 12,
     },
     stepTitle: {
+        fontWeight: '600',
+        fontSize: 13,
+        color: '#1a1a1a',
+        textAlign: 'left',
+        lineHeight: 18,
+    },
+
+    // Care Section
+    careHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    careToggle: {
+        flexDirection: 'row',
+        backgroundColor: '#F5F5F5',
+        borderRadius: 20,
+        padding: 4,
+    },
+    careBtn: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    careBtnActive: {
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    careBtnText: {
         fontSize: 12,
-        fontWeight: 'bold',
-        textAlign: 'center',
+        color: '#888',
+        fontWeight: '600',
+    },
+    careBtnTextActive: {
+        color: '#333',
+    },
+    careList: {
+        backgroundColor: '#FAFAFA',
+        padding: 15,
+        borderRadius: 12,
+        gap: 12,
+    },
+    careItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    careText: {
+        fontSize: 13,
+        color: '#555',
+        flex: 1,
+    },
+
+    // Bottom Bar
+    bottomBar: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+        paddingHorizontal: 20,
+        paddingTop: 15,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    priceContainer: {
+        justifyContent: 'center',
+    },
+    priceLabel: {
+        fontSize: 12,
+        color: '#888',
         marginBottom: 4,
+        fontWeight: '500',
     },
-    stepDesc: {
-        fontSize: 10,
-        color: '#666',
-        textAlign: 'center',
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
     },
+    priceValue: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#1a1a1a',
+    },
+    bookBtn: {
+        backgroundColor: '#1a1a1a',
+        paddingVertical: 16,
+        paddingHorizontal: 32,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    bookBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+
     // Accordion
     accordionContainer: {
-        backgroundColor: '#f9f9f9',
-        borderRadius: 8,
-        marginBottom: 10,
-        overflow: 'hidden',
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        paddingVertical: 5,
     },
     accordionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 15,
+        paddingVertical: 15,
     },
     accordionTitle: {
         fontSize: 14,
@@ -589,58 +980,11 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     accordionContent: {
-        paddingHorizontal: 15,
         paddingBottom: 15,
     },
     accordionText: {
-        fontSize: 12,
-        color: '#666',
-        lineHeight: 18,
-    },
-    // Care Section
-    careSection: {
-        marginBottom: 30,
-    },
-    tabHeader: {
-        flexDirection: 'row',
-        marginBottom: 15,
-        backgroundColor: '#f2f2f2',
-        borderRadius: 25,
-        padding: 4,
-    },
-    tabBtn: {
-        flex: 1,
-        paddingVertical: 10,
-        alignItems: 'center',
-        borderRadius: 22,
-    },
-    tabBtnActive: {
-        backgroundColor: '#000',
-    },
-    tabText: {
         fontSize: 13,
-        fontWeight: '600',
         color: '#666',
-    },
-    tabTextActive: {
-        color: '#fff',
-    },
-    tabContent: {
-        paddingHorizontal: 5,
-    },
-    bulletRow: {
-        flexDirection: 'row',
-        marginBottom: 8,
-    },
-    bullet: {
-        fontSize: 14,
-        marginRight: 8,
-        color: '#555',
-    },
-    bulletText: {
-        fontSize: 13,
-        color: '#555',
         lineHeight: 20,
-        flex: 1,
     },
 });

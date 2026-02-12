@@ -1,6 +1,6 @@
-import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Dimensions, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Dimensions, LayoutAnimation, Platform, UIManager, Linking, Alert } from 'react-native';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
@@ -29,7 +29,13 @@ const FAQItem = ({ question, answer, isOpen, onTap }: { question: string, answer
 
 export default function SupportScreen() {
     const router = useRouter();
+    const insets = useSafeAreaInsets();
     const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0); // First one open by default
+
+    // Form State
+    const [name, setName] = useState('');
+    const [mobile, setMobile] = useState('');
+    const [query, setQuery] = useState('');
 
     const toggleFaq = (index: number) => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -42,6 +48,41 @@ export default function SupportScreen() {
         if (route === 'bookings') router.push('/bookings');
         if (route === 'support') router.push('/support');
         if (route === 'account') router.push('/account');
+    };
+
+    const handleSubmit = () => {
+        if (!name || !mobile || !query) {
+            Alert.alert('Missing Fields', 'Please fill in all the details so we can help you better.');
+            return;
+        }
+        // Simulate API call
+        setTimeout(() => {
+            Alert.alert('Ticket Raised', `Hi ${name}, we have received your query. Our support team will contact you at ${mobile} shortly.`);
+            setName('');
+            setMobile('');
+            setQuery('');
+        }, 500);
+    };
+
+    const handleCall = () => {
+        Linking.openURL('tel:+919326816280');
+    };
+
+    const handleWhatsApp = () => {
+        const text = "Hi Pretty Me Support, I have a query regarding...";
+        const url = `whatsapp://send?phone=+919326816280&text=${encodeURIComponent(text)}`;
+        Linking.openURL(url).catch(() => {
+            Alert.alert('Error', 'WhatsApp is not installed on your device.');
+        });
+    };
+
+    const handleMap = () => {
+        const address = "2, Shambhu Dyal Marg, Okhla Phase III, Bahapur, New Delhi, Delhi 110065";
+        const url = Platform.select({
+            ios: `maps:0,0?q=${encodeURIComponent(address)}`,
+            android: `geo:0,0?q=${encodeURIComponent(address)}`,
+        });
+        if (url) Linking.openURL(url);
     };
 
     const faqs = [
@@ -72,11 +113,31 @@ export default function SupportScreen() {
 
                 {/* Form */}
                 <View style={styles.formContainer}>
-                    <TextInput style={styles.input} placeholder="Name" placeholderTextColor="#aaa" />
-                    <TextInput style={styles.input} placeholder="Mobile Number" placeholderTextColor="#aaa" keyboardType="phone-pad" />
-                    <TextInput style={styles.input} placeholder="Your Query" placeholderTextColor="#aaa" />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Name"
+                        placeholderTextColor="#aaa"
+                        value={name}
+                        onChangeText={setName}
+                    />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Mobile Number"
+                        placeholderTextColor="#aaa"
+                        keyboardType="phone-pad"
+                        value={mobile}
+                        onChangeText={setMobile}
+                    />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Your Query"
+                        placeholderTextColor="#aaa"
+                        value={query}
+                        onChangeText={setQuery}
+                        multiline
+                    />
 
-                    <TouchableOpacity style={styles.submitBtn}>
+                    <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
                         <Text style={styles.submitBtnText}>SUBMIT</Text>
                     </TouchableOpacity>
                 </View>
@@ -85,11 +146,11 @@ export default function SupportScreen() {
 
                 {/* Contact Buttons */}
                 <View style={styles.contactRow}>
-                    <TouchableOpacity style={styles.contactBtn}>
+                    <TouchableOpacity style={styles.contactBtn} onPress={handleCall}>
                         <Ionicons name="call-outline" size={20} color="#000" style={{ marginRight: 8 }} />
                         <Text style={styles.contactBtnText}>CALL US</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.contactBtn}>
+                    <TouchableOpacity style={styles.contactBtn} onPress={handleWhatsApp}>
                         <FontAwesome name="whatsapp" size={20} color="#000" style={{ marginRight: 8 }} />
                         <Text style={styles.contactBtnText}>WHATSAPP</Text>
                     </TouchableOpacity>
@@ -98,7 +159,7 @@ export default function SupportScreen() {
                 <Text style={styles.workingHours}>Working hours: Mon-Sun 10.00 AM- 8.00 PM</Text>
 
                 {/* Address Card */}
-                <View style={styles.addressCard}>
+                <TouchableOpacity style={styles.addressCard} onPress={handleMap} activeOpacity={0.9}>
                     <Text style={styles.addressTitle}>Contact Information</Text>
                     <Text style={styles.addressSub}>Tap address to open Google Maps</Text>
 
@@ -109,7 +170,7 @@ export default function SupportScreen() {
                             <Text style={styles.addressText}>2, Shambhu Dyal Marg, Okhla Phase III, Bahapur, New Delhi, Delhi 110065</Text>
                         </View>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 {/* FAQ Section */}
                 <Text style={styles.faqTitle}>Frequently Asked Questions</Text>
@@ -128,7 +189,7 @@ export default function SupportScreen() {
             </ScrollView>
 
             {/* Bottom Nav */}
-            <View style={styles.bottomNav}>
+            <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 10 }]}>
                 <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('home')}>
                     <Ionicons name="home-outline" size={24} color="#999" />
                     <Text style={styles.navText}>Home</Text>
@@ -164,7 +225,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     header: {
-        alignItems: 'center',
+        alignItems: 'flex-start',
+        paddingHorizontal: 20,
         paddingVertical: 15,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
@@ -184,13 +246,13 @@ const styles = StyleSheet.create({
     greetingTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        textAlign: 'center',
+        textAlign: 'left',
         marginBottom: 5,
     },
     greetingSub: {
         fontSize: 14,
         color: '#888',
-        textAlign: 'center',
+        textAlign: 'left',
         marginBottom: 20,
     },
     formContainer: {

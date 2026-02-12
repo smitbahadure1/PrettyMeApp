@@ -1,8 +1,9 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Dimensions, Modal } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, Dimensions, Modal, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useRouter } from 'expo-router';
 
@@ -15,6 +16,21 @@ export default function LoginScreen() {
     const [showConsentModal, setShowConsentModal] = useState(false);
     const [consentGiven, setConsentGiven] = useState(false); // Second specific data consent
 
+    useEffect(() => {
+        checkOnboarding();
+    }, []);
+
+    const checkOnboarding = async () => {
+        try {
+            const value = await AsyncStorage.getItem('hasOnboarded');
+            if (value !== 'true') {
+                router.replace('/onboarding');
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
     const handleContinue = () => {
         // Logic for after consent is given (e.g., OTP)
         console.log("Consent given, proceed to OTP");
@@ -23,80 +39,85 @@ export default function LoginScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.container}
+        >
             <StatusBar style="light" />
 
-            {/* Top Image Section */}
-            <View style={styles.imageContainer}>
-                <Image
-                    source={{ uri: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=2070&auto=format&fit=crop' }}
-                    style={styles.image}
-                    contentFit="cover"
-                />
-                <View style={styles.textOverlay}>
-                    <Text style={styles.heroText}>Science-Led Aesthetics</Text>
-                    <Text style={styles.heroText}>At Home</Text>
-                </View>
-            </View>
-
-            {/* Bottom Sheet */}
-            <View style={styles.bottomSheet}>
-
-                {/* Logo Placeholder */}
-                <View style={styles.logoContainer}>
-                    {/* Sparkles icon for Pretty Me */}
-                    <Ionicons name="sparkles" size={28} color="#000" style={styles.logoIcon} />
-                    <View>
-                        <Text style={styles.logoTitle}>PRETTY ME</Text>
-                        <Text style={styles.logoSubtitle}>SKIN & WELLNESS</Text>
-                    </View>
-                </View>
-
-                <Text style={styles.formTitle}>LOGIN or SIGN UP</Text>
-                <Text style={styles.formSubtitle}>Enter your no. to start the journey towards your best Pretty Me</Text>
-
-                {/* Mobile Input */}
-                <View style={styles.inputWrapper}>
-                    <Text style={styles.countryCode}>+91</Text>
-                    <View style={styles.verticalDivider} />
-                    <TextInput
-                        style={styles.input}
-                        placeholder="Mobile Number"
-                        placeholderTextColor="#999"
-                        keyboardType="phone-pad"
-                        value={mobile}
-                        onChangeText={setMobile}
-                        maxLength={10}
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                bounces={false}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Top Image Section - Now inside ScrollView */}
+                <View style={styles.imageContainer}>
+                    <Image
+                        source={{ uri: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=2070&auto=format&fit=crop' }}
+                        style={styles.image}
+                        contentFit="cover"
                     />
                 </View>
 
-                {/* Terms & Conditions (Initial) */}
-                <View style={styles.termsContainer}>
+                {/* Bottom Sheet */}
+                <View style={styles.bottomSheet}>
+
+                    {/* Logo Placeholder */}
+                    <View style={styles.logoContainer}>
+                        {/* Sparkles icon for Pretty Me */}
+                        <Ionicons name="sparkles" size={28} color="#000" style={styles.logoIcon} />
+                        <View>
+                            <Text style={styles.logoTitle}>PRETTY ME</Text>
+                            <Text style={styles.logoSubtitle}>SKIN & WELLNESS</Text>
+                        </View>
+                    </View>
+
+                    <Text style={styles.formTitle}>LOGIN or SIGN UP</Text>
+                    <Text style={styles.formSubtitle}>Enter your no. to start the journey towards your best Pretty Me</Text>
+
+                    {/* Mobile Input */}
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.countryCode}>+91</Text>
+                        <View style={styles.verticalDivider} />
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Mobile Number"
+                            placeholderTextColor="#999"
+                            keyboardType="phone-pad"
+                            value={mobile}
+                            onChangeText={setMobile}
+                            maxLength={10}
+                        />
+                    </View>
+
+                    {/* Terms & Conditions (Initial) */}
+                    <View style={styles.termsContainer}>
+                        <TouchableOpacity
+                            onPress={() => setAgreed(!agreed)}
+                            style={[styles.checkbox, agreed && styles.checkboxActive]}
+                        >
+                            {agreed && <Ionicons name="checkmark" size={16} color="#fff" />}
+                        </TouchableOpacity>
+                        <Text style={styles.termsText}>
+                            By continuing, I accept the <Text style={styles.link}>Terms & Conditions</Text> and <Text style={styles.link}>Privacy Policy</Text>
+                        </Text>
+                    </View>
+
+                    {/* Submit Button */}
                     <TouchableOpacity
-                        onPress={() => setAgreed(!agreed)}
-                        style={[styles.checkbox, agreed && styles.checkboxActive]}
+                        style={[styles.submitButton, { backgroundColor: mobile.length === 10 ? '#333' : '#888' }]}
+                        onPress={() => setShowConsentModal(true)}
+                        disabled={mobile.length !== 10}
                     >
-                        {agreed && <Ionicons name="checkmark" size={16} color="#fff" />}
+                        <Text style={styles.submitButtonText}>SUBMIT</Text>
                     </TouchableOpacity>
-                    <Text style={styles.termsText}>
-                        By continuing, I accept the <Text style={styles.link}>Terms & Conditions</Text> and <Text style={styles.link}>Privacy Policy</Text>
-                    </Text>
+
+                    {/* Skip Button */}
+                    <TouchableOpacity style={styles.skipButton} onPress={() => router.push('/home')}>
+                        <Text style={styles.skipButtonText}>SKIP FOR NOW</Text>
+                    </TouchableOpacity>
                 </View>
-
-                {/* Submit Button */}
-                <TouchableOpacity
-                    style={[styles.submitButton, { backgroundColor: mobile.length === 10 ? '#333' : '#888' }]}
-                    onPress={() => setShowConsentModal(true)}
-                    disabled={mobile.length !== 10}
-                >
-                    <Text style={styles.submitButtonText}>SUBMIT</Text>
-                </TouchableOpacity>
-
-                {/* Skip Button */}
-                <TouchableOpacity style={styles.skipButton}>
-                    <Text style={styles.skipButtonText}>SKIP FOR NOW</Text>
-                </TouchableOpacity>
-            </View>
+            </ScrollView>
 
             {/* Consent Modal */}
             <Modal
@@ -131,8 +152,7 @@ export default function LoginScreen() {
                     </View>
                 </View>
             </Modal>
-
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -141,43 +161,31 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000', // Behind the image
     },
+    scrollContent: {
+        flexGrow: 1,
+        backgroundColor: '#fff',
+    },
     imageContainer: {
-        height: height * 0.55, // Takes up top 55%
+        height: height * 0.5,
         width: '100%',
-        position: 'relative',
     },
     image: {
         width: '100%',
         height: '100%',
     },
-    textOverlay: {
-        position: 'absolute',
-        top: 60,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-        zIndex: 10,
+    keyboardView: {
+        flex: 1,
     },
-    heroText: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#fff',
-        textAlign: 'center',
-        textShadowColor: 'rgba(0, 0, 0, 0.3)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 4,
-    },
+    // Removed textOverlay styles as they are no longer used
+
     bottomSheet: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
         backgroundColor: '#fff',
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         paddingHorizontal: 25,
-        paddingTop: 40,
-        height: height * 0.55, // Overlaps slightly or takes remaining space
+        paddingVertical: 40,
+        marginTop: -30, // Overlap the image slightly
+        minHeight: height * 0.55,
         alignItems: 'center',
     },
     // Logo Styles
