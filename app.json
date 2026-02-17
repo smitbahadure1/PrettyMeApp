@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "PrettyMe",
-    "slug": "PrettyMe",
+    "slug": "prettyme-smit09",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "prettyme",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,7 +16,7 @@
       "package": "com.prettyme.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-app-icon.png",
+        "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -46,6 +46,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0e12de29-011d-40b5-9b7d-f86295b53c5b"
+      }
+    },
+    "owner": "smit09"
   }
 }
