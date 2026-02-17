@@ -2,30 +2,42 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Linking, Dimensio
 import { Ionicons, FontAwesome, AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+
+import { useAuth, useUser } from '@clerk/clerk-expo';
 
 const { width } = Dimensions.get('window');
 
+import * as Haptics from 'expo-haptics';
+
 // Reusable Menu Item Component
 const MenuItem = ({ icon, label, onPress }: { icon: any, label: string, onPress?: () => void }) => (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
+    <TouchableOpacity style={styles.menuItem} onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress && onPress();
+    }}>
         <View style={styles.menuIconContainer}>
             {icon}
         </View>
-        <Text style={styles.menuLabel}>{label}</Text>
+        <Text style={[styles.menuLabel, { color: label === 'Log Out' ? '#FF4d4d' : '#333' }]}>{label}</Text>
         <Ionicons name="chevron-forward" size={20} color="#000" />
     </TouchableOpacity>
 );
 
 export default function AccountScreen() {
     const router = useRouter();
+    const { signOut } = useAuth();
+    const { user, isLoaded } = useUser();
     const insets = useSafeAreaInsets();
 
+
     const navigateTo = (route: string) => {
-        if (route === 'home') router.push('/home');
-        if (route === 'categories') router.push('/categories');
-        if (route === 'bookings') router.push('/bookings');
-        if (route === 'support') router.push('/support');
-        if (route === 'account') router.push('/account');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (route === 'home') router.push('/home' as any);
+        if (route === 'categories') router.push('/categories' as any);
+        if (route === 'bookings') router.push('/bookings' as any);
+        if (route === 'support') router.push('/support' as any);
+        if (route === 'account') router.push('/account' as any);
     };
 
     return (
@@ -34,10 +46,29 @@ export default function AccountScreen() {
 
                 {/* Profile Header */}
                 <View style={styles.header}>
-                    <Text style={styles.greeting}>Hi, Smit</Text>
-                    <TouchableOpacity>
-                        <Text style={styles.editProfile}>Edit Profile</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.greeting}>
+                        {(() => {
+                            if (!isLoaded) return 'Loading...';
+                            if (!user) return 'Hi, Guest';
+
+                            // Try all possible name fields
+                            return user.fullName ||
+                                user.firstName ||
+                                user.username ||
+                                user.primaryEmailAddress?.emailAddress ||
+                                user.primaryPhoneNumber?.phoneNumber ||
+                                `User ${user.id.slice(0, 6)}` ||
+                                'Hi, Guest';
+                        })()}
+                    </Text>
+                    {user && (
+                        <TouchableOpacity onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            // Navigate to edit profile or show alert
+                        }}>
+                            <Text style={styles.editProfile}>Edit Profile</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* Grid Section */}
@@ -107,52 +138,63 @@ export default function AccountScreen() {
                         label="Privacy & Policy"
                         onPress={() => router.push('/legal/privacy')}
                     />
+
+                    {/* Admin Dashboard - Only for Admin */}
+                    {(user?.primaryEmailAddress?.emailAddress?.toLowerCase() === 'nidhisakpaludemy@gmail.com' || user?.primaryEmailAddress?.emailAddress?.toLowerCase() === 'admin@prettyme.com') && (
+                        <MenuItem
+                            icon={<MaterialIcons name="admin-panel-settings" size={22} color="#000" />}
+                            label="Admin Dashboard"
+                            onPress={() => router.push('/admin')}
+                        />
+                    )}
+                    <MenuItem
+                        icon={<Ionicons name="log-out-outline" size={22} color="#FF4d4d" />}
+                        label="Log Out"
+                        onPress={() => {
+                            Alert.alert('Log Out', 'Are you sure you want to log out?', [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Log Out',
+                                    style: 'destructive',
+                                    onPress: async () => {
+                                        try {
+                                            await signOut();
+                                            // Force navigation to login screen
+                                            router.replace('/');
+                                        } catch (e) {
+                                            console.error("Sign out failed", e);
+                                            // Try navigation anyway
+                                            router.replace('/');
+                                        }
+                                    }
+                                }
+                            ]);
+                        }}
+                    />
                 </View>
 
                 {/* Social Links */}
                 <View style={styles.socialSection}>
                     <Text style={styles.socialTitle}>Social Links</Text>
                     <View style={styles.socialIconsRow}>
-                        <TouchableOpacity style={styles.socialIcon}>
+                        <TouchableOpacity style={styles.socialIcon} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
                             <AntDesign name="instagram" size={30} color="#E1306C" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.socialIcon}>
+                        <TouchableOpacity style={styles.socialIcon} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
                             <AntDesign name="youtube" size={30} color="#FF0000" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.socialIcon}>
+                        <TouchableOpacity style={styles.socialIcon} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
                             <FontAwesome name="facebook-square" size={30} color="#4267B2" />
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.socialIcon}>
+                        <TouchableOpacity style={styles.socialIcon} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
                             <FontAwesome name="linkedin-square" size={30} color="#0077b5" />
                         </TouchableOpacity>
                     </View>
                 </View>
 
-            </ScrollView>
 
-            {/* Bottom Nav */}
-            <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 10 }]}>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('home')}>
-                    <Ionicons name="home-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Home</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('categories')}>
-                    <Ionicons name="grid-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Categories</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('bookings')}>
-                    <Ionicons name="calendar-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Bookings</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('support')}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Support</Text>
-                </TouchableOpacity>
-                <View style={styles.navItem}>
-                    <Ionicons name="person" size={24} color="#000" />
-                    <Text style={[styles.navText, { color: '#000', fontWeight: 'bold' }]}>Account</Text>
-                </View>
-            </View>
+
+            </ScrollView>
         </SafeAreaView>
     );
 }
@@ -262,25 +304,5 @@ const styles = StyleSheet.create({
     socialIcon: {
         // Optional styling if needed
     },
-    // Bottom Nav
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        backgroundColor: '#fff',
-        position: 'absolute',
-        bottom: 0,
-        width: '100%',
-        paddingBottom: 5,
-    },
-    navItem: {
-        alignItems: 'center',
-    },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
-        color: '#999',
-    },
+
 });

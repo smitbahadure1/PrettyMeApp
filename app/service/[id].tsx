@@ -6,6 +6,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { supabase } from '../../lib/supabase';
+import { useUser } from '@clerk/clerk-expo';
 
 const { width } = Dimensions.get('window');
 
@@ -275,7 +278,10 @@ const AccordionItem = ({ title, content }: { title: string, content?: string | R
     const [isOpen, setIsOpen] = useState(false);
     return (
         <View style={styles.accordionContainer}>
-            <TouchableOpacity style={styles.accordionHeader} onPress={() => setIsOpen(!isOpen)}>
+            <TouchableOpacity style={styles.accordionHeader} onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setIsOpen(!isOpen);
+            }}>
                 <Text style={styles.accordionTitle}>{title}</Text>
                 <Ionicons name={isOpen ? "remove" : "add"} size={20} color="#333" />
             </TouchableOpacity>
@@ -292,6 +298,7 @@ export default function ServiceDetailScreen() {
     const router = useRouter();
     const { id } = useLocalSearchParams();
     const insets = useSafeAreaInsets();
+    const { user } = useUser();
     const [activeTab, setActiveTab] = useState<'Before' | 'After'>('Before');
     const [isBookmarked, setIsBookmarked] = useState(false);
 
@@ -306,6 +313,7 @@ export default function ServiceDetailScreen() {
     const [address, setAddress] = useState('123, Green Park, New Delhi');
 
     const handleBookNow = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setBookingModalVisible(true);
     };
 
@@ -330,7 +338,30 @@ export default function ServiceDetailScreen() {
             const updatedBookings = [...existingBookings, newBooking];
             await AsyncStorage.setItem('bookings', JSON.stringify(updatedBookings));
 
+            // Sync to Supabase for Admin Dashboard
+            if (user) {
+                const { error } = await supabase.from('bookings').insert({
+                    user_id: user.id,
+                    user_email: user.primaryEmailAddress?.emailAddress, // Store email for Admin visibility
+                    service_id: serviceId,
+                    title: data.title,
+                    price: data.price,
+                    date: selectedDate,
+                    time: selectedTime,
+                    address: address,
+                    status: 'Upcoming',
+                    image: data.heroImage,
+                    created_at: new Date().toISOString(),
+                });
+
+                if (error) {
+                    console.error('Supabase sync failed:', error);
+                    // We don't block the UI success since local save worked
+                }
+            }
+
             setBookingModalVisible(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Alert.alert('Success', 'Booking Confirmed!', [
                 { text: 'View Bookings', onPress: () => router.push('/bookings') }
             ]);
@@ -359,14 +390,20 @@ export default function ServiceDetailScreen() {
 
                     {/* Header Actions */}
                     <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-                        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            router.back();
+                        }} style={styles.iconBtn}>
                             <Ionicons name="chevron-back" size={24} color="#fff" />
                         </TouchableOpacity>
                         <View style={{ flexDirection: 'row', gap: 15 }}>
-                            <TouchableOpacity style={styles.iconBtn}>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}>
                                 <Ionicons name="share-social-outline" size={24} color="#fff" />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.iconBtn} onPress={() => setIsBookmarked(!isBookmarked)}>
+                            <TouchableOpacity style={styles.iconBtn} onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setIsBookmarked(!isBookmarked);
+                            }}>
                                 <Ionicons name={isBookmarked ? "heart" : "heart-outline"} size={24} color={isBookmarked ? "#FF4d4d" : "#fff"} />
                             </TouchableOpacity>
                         </View>
@@ -457,12 +494,18 @@ export default function ServiceDetailScreen() {
                             <View style={styles.careToggle}>
                                 <TouchableOpacity
                                     style={[styles.careBtn, activeTab === 'Before' && styles.careBtnActive]}
-                                    onPress={() => setActiveTab('Before')}>
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setActiveTab('Before');
+                                    }}>
                                     <Text style={[styles.careBtnText, activeTab === 'Before' && styles.careBtnTextActive]}>Pre-Care</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     style={[styles.careBtn, activeTab === 'After' && styles.careBtnActive]}
-                                    onPress={() => setActiveTab('After')}>
+                                    onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setActiveTab('After');
+                                    }}>
                                     <Text style={[styles.careBtnText, activeTab === 'After' && styles.careBtnTextActive]}>Post-Care</Text>
                                 </TouchableOpacity>
                             </View>

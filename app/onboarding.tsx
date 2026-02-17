@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Dimensions, FlatList } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +39,7 @@ export default function OnboardingScreen() {
 
     const finishOnboarding = async () => {
         try {
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await AsyncStorage.setItem('hasOnboarded', 'true');
             router.replace('/'); // Go to Login Screen
         } catch (e) {
@@ -46,6 +48,7 @@ export default function OnboardingScreen() {
     };
 
     const handleNext = async () => {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (currentIndex < SLIDES.length - 1) {
             flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
         } else {
@@ -116,7 +119,10 @@ export default function OnboardingScreen() {
 
                 {/* Controls */}
                 <View style={styles.controls}>
-                    <TouchableOpacity onPress={finishOnboarding}>
+                    <TouchableOpacity onPress={async () => {
+                        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        finishOnboarding();
+                    }}>
                         <Text style={styles.skipText}>Skip</Text>
                     </TouchableOpacity>
 

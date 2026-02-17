@@ -3,6 +3,7 @@ import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -13,7 +14,10 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const FAQItem = ({ question, answer, isOpen, onTap }: { question: string, answer: string, isOpen: boolean, onTap: () => void }) => {
     return (
-        <TouchableOpacity style={styles.faqItem} onPress={onTap} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.faqItem} onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onTap();
+        }} activeOpacity={0.8}>
             <View style={styles.faqHeader}>
                 <Text style={styles.faqQuestion}>{question}</Text>
                 <Ionicons name={isOpen ? "remove" : "add"} size={20} color="#666" />
@@ -43,14 +47,16 @@ export default function SupportScreen() {
     };
 
     const navigateTo = (route: string) => {
-        if (route === 'home') router.push('/home');
-        if (route === 'categories') router.push('/categories');
-        if (route === 'bookings') router.push('/bookings');
-        if (route === 'support') router.push('/support');
-        if (route === 'account') router.push('/account');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (route === 'home') router.push('/home' as any);
+        if (route === 'categories') router.push('/categories' as any);
+        if (route === 'bookings') router.push('/bookings' as any);
+        if (route === 'support') router.push('/support' as any);
+        if (route === 'account') router.push('/account' as any);
     };
 
     const handleSubmit = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         if (!name || !mobile || !query) {
             Alert.alert('Missing Fields', 'Please fill in all the details so we can help you better.');
             return;
@@ -65,10 +71,12 @@ export default function SupportScreen() {
     };
 
     const handleCall = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         Linking.openURL('tel:+919326816280');
     };
 
     const handleWhatsApp = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const text = "Hi Pretty Me Support, I have a query regarding...";
         const url = `whatsapp://send?phone=+919326816280&text=${encodeURIComponent(text)}`;
         Linking.openURL(url).catch(() => {
@@ -77,6 +85,7 @@ export default function SupportScreen() {
     };
 
     const handleMap = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         const address = "2, Shambhu Dyal Marg, Okhla Phase III, Bahapur, New Delhi, Delhi 110065";
         const url = Platform.select({
             ios: `maps:0,0?q=${encodeURIComponent(address)}`,
@@ -187,33 +196,6 @@ export default function SupportScreen() {
                 </View>
 
             </ScrollView>
-
-            {/* Bottom Nav */}
-            <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 10 }]}>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('home')}>
-                    <Ionicons name="home-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Home</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('categories')}>
-                    <Ionicons name="grid-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Categories</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('bookings')}>
-                    <Ionicons name="calendar-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Bookings</Text>
-                </TouchableOpacity>
-                <View style={styles.navItem}>
-                    <Ionicons name="chatbubble-ellipses" size={24} color="#000" />
-                    <Text style={[styles.navText, { color: '#000', fontWeight: 'bold' }]}>Support</Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.navItem}
-                    onPress={() => router.push('/account')}
-                >
-                    <Ionicons name="person-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Account</Text>
-                </TouchableOpacity>
-            </View>
 
         </SafeAreaView>
     );
@@ -388,26 +370,5 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#666',
         lineHeight: 20,
-    },
-    // Bottom Nav
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        backgroundColor: '#fff',
-        position: 'absolute',
-        bottom: 0,
-        width: '100%',
-        paddingBottom: 5,
-    },
-    navItem: {
-        alignItems: 'center',
-    },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
-        color: '#999',
     },
 });

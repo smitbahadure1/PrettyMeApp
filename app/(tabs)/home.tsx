@@ -1,25 +1,29 @@
 import { Image } from 'expo-image';
-import { StyleSheet, View, Text, ScrollView, TextInput, TouchableOpacity, Dimensions, FlatList, Platform, Alert } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Dimensions, FlatList, Alert, TextInput, Modal } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useRef, useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-expo';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
+import { StatusBar } from 'expo-status-bar';
+
+
 export default function HomeScreen() {
     const router = useRouter();
+    const { user, isLoaded } = useUser();
     const insets = useSafeAreaInsets();
     const flatListRef = useRef<FlatList>(null);
     const [activeBanner, setActiveBanner] = useState(0);
-    // ... (no change to imports)
 
-    // Helper for fonts
-    const fonts = {
-        regular: 'Inter_400Regular',
-        semiBold: 'Inter_600SemiBold',
-        bold: 'Inter_700Bold',
+    const handlePress = (route: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push(route as any);
     };
 
     const banners = [
@@ -53,7 +57,7 @@ export default function HomeScreen() {
 
     const concerns = [
         { id: 'unwanted-hair', title: 'Hair', image: 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400&auto=format&fit=crop' },
-        { id: 'acne', title: 'Acne', image: 'https://images.unsplash.com/photo-1556228552-603be9389234?q=80&w=400&auto=format&fit=crop' },
+        { id: 'acne', title: 'Acne', image: 'https://images.unsplash.com/photo-1505944270275-e884d56c7623?q=80&w=400&auto=format&fit=crop' },
         { id: 'pigmentation', title: 'Spots', image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=400&auto=format&fit=crop' },
         { id: 'dull-skin', title: 'Glow', image: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=400&auto=format&fit=crop' },
         { id: 'anti-aging', title: 'Ageless', image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?q=80&w=400&auto=format&fit=crop' },
@@ -65,11 +69,6 @@ export default function HomeScreen() {
         { id: 3, title: 'Hydra Facial', category: 'Face', image: 'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?q=80&w=600&auto=format&fit=crop', rating: 4.9, reviews: 200, link: '/service/hydra-facial' },
     ];
 
-    const expertDoctors = [
-        { id: 1, name: 'Dr. Ayesha Khan', spec: 'Dermatologist (MD)', exp: '10 Yrs', image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=400&auto=format&fit=crop', rating: 4.9 },
-        { id: 2, name: 'Dr. Rahul Verma', spec: 'Cosmetologist', exp: '8 Yrs', image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=400&auto=format&fit=crop', rating: 4.8 },
-        { id: 3, name: 'Dr. Sneha Gupta', spec: 'Trichologist', exp: '12 Yrs', image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=400&auto=format&fit=crop', rating: 5.0 },
-    ];
     // Auto-scroll logic
     useEffect(() => {
         const interval = setInterval(() => {
@@ -95,23 +94,143 @@ export default function HomeScreen() {
     }).current;
 
 
+    const doctors = [
+        {
+            id: 1,
+            name: 'Dr. Priya Sharma',
+            specialty: 'Senior Dermatologist',
+            rating: 4.9,
+            reviews: '500+',
+            image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop',
+            desc: 'Senior Dermatologist with 10+ years of experience. Specializes in advanced acne treatments and anti-aging therapies.',
+            exp: '10+ Years',
+            fee: 1500
+        },
+        {
+            id: 2,
+            name: 'Dr. Rahul Mehta',
+            specialty: 'Cosmetologist',
+            rating: 4.8,
+            reviews: '450+',
+            image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=2070&auto=format&fit=crop',
+            desc: 'Leading Cosmetologist known for non-surgical hair restoration and scalp treatments.',
+            exp: '8+ Years',
+            fee: 1200
+        },
+        {
+            id: 3,
+            name: 'Dr. Anjali Gupta',
+            specialty: 'Skin Specialist',
+            rating: 5.0,
+            reviews: '600+',
+            image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=2070&auto=format&fit=crop',
+            desc: 'Renowned Skin Specialist with expertise in laser therapies and pigmentation correction.',
+            exp: '12+ Years',
+            fee: 1800
+        }
+    ];
+
+    const [doctorModalVisible, setDoctorModalVisible] = useState(false);
+    const [selectedDoctor, setSelectedDoctor] = useState<any>(null);
+
+    // Booking Form State within Doctor Modal
+    const [bookingStep, setBookingStep] = useState<'details' | 'form'>('details');
+    const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString());
+    const [selectedTime, setSelectedTime] = useState('10:00 AM');
+    const [address, setAddress] = useState('123, Green Park, New Delhi');
+
+    const handleDoctorPress = (doctor: any) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setSelectedDoctor(doctor);
+        setBookingStep('details'); // Reset to details view
+        setDoctorModalVisible(true);
+    };
+
+    const confirmDoctorBooking = async () => {
+        if (!selectedDoctor) return;
+
+        try {
+            const newBooking = {
+                id: Date.now().toString(),
+                serviceId: `doc-${selectedDoctor.id}`,
+                title: `Consultation: ${selectedDoctor.name}`,
+                price: selectedDoctor.fee,
+                date: selectedDate,
+                time: selectedTime,
+                address: address,
+                status: 'Upcoming',
+                image: selectedDoctor.image,
+                duration: '45 mins', // Default duration for consultation
+                isDoctor: true,
+                doctorName: selectedDoctor.name,
+                specialty: selectedDoctor.specialty
+            };
+
+            // Save to Local Storage
+            const existingBookingsStr = await AsyncStorage.getItem('bookings');
+            const existingBookings = existingBookingsStr ? JSON.parse(existingBookingsStr) : [];
+            const updatedBookings = [...existingBookings, newBooking];
+            await AsyncStorage.setItem('bookings', JSON.stringify(updatedBookings));
+
+            setDoctorModalVisible(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            // Navigate to Bookings Tab to show the new booking
+            // We use a small timeout to allow modal to close smoothly
+            setTimeout(() => {
+                router.push('/bookings');
+            }, 300);
+
+        } catch (error) {
+            console.error('Error saving booking:', error);
+            Alert.alert('Error', 'Failed to save booking');
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
+            <StatusBar style="dark" />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
 
                 {/* 1. Modern Header */}
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.greetingText}>Good Morning,</Text>
-                        <Text style={styles.userName}>Smit</Text>
+                        <Text style={styles.userName}>
+                            {(() => {
+                                if (!isLoaded) return 'Loading...';
+                                if (!user) return 'Not Signed In';
+
+                                const displayName =
+                                    user.firstName ||
+                                    user.fullName ||
+                                    user.username ||
+                                    user.primaryEmailAddress?.emailAddress?.split('@')[0] ||
+                                    user.primaryPhoneNumber?.phoneNumber ||
+                                    user.id?.slice(0, 8) ||
+                                    'User';
+
+                                return displayName;
+                            })()}
+                        </Text>
                     </View>
                 </View>
 
-                {/* 2. Search Bar - REMOVED */}
-                <View style={{ marginBottom: 10 }} />
+                {/* 2. Search Bar */}
+                <View style={styles.searchContainer}>
+                    <Ionicons name="search" size={20} color="#999" />
+                    <TextInput
+                        placeholder="Search treatments, doctors..."
+                        placeholderTextColor="#999"
+                        style={styles.searchInput}
+                    />
+                    <View style={styles.filterBtn}>
+                        <Ionicons name="options-outline" size={20} color="#fff" />
+                    </View>
+                </View>
 
                 {/* 3. Hero Carousel (Auto-Sliding) */}
-                <View style={{ marginBottom: 20 }}>
+                <View style={[styles.carouselContainer, { marginBottom: 20 }]}>
                     <FlatList
                         ref={flatListRef}
                         data={banners}
@@ -125,9 +244,9 @@ export default function HomeScreen() {
                             if (!item) return null;
                             return (
                                 <TouchableOpacity
-                                    style={[styles.heroCard, { width: width - 40, marginHorizontal: 20 }]}
+                                    style={[styles.heroCard, { width: width - 40, marginHorizontal: 0 }]}
                                     activeOpacity={0.9}
-                                    onPress={() => router.push(item.link as any)}
+                                    onPress={() => handlePress(item.link)}
                                 >
                                     <Image source={{ uri: item.image }} style={styles.heroImage} contentFit="cover" />
                                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.heroOverlay}>
@@ -156,7 +275,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                     style={styles.membershipBanner}
                     activeOpacity={0.9}
-                    onPress={() => router.push('/membership')}
+                    onPress={() => handlePress('/membership')}
                 >
                     <LinearGradient
                         colors={['#1a1a1a', '#000']}
@@ -200,7 +319,7 @@ export default function HomeScreen() {
                             <TouchableOpacity
                                 key={item.id}
                                 style={styles.storyItem}
-                                onPress={() => router.push(`/service/${item.id}`)}
+                                onPress={() => handlePress(`/service/${item.id}`)}
                             >
                                 <View style={styles.storyRing}>
                                     <Image source={{ uri: item.image }} style={styles.storyImg} />
@@ -220,7 +339,7 @@ export default function HomeScreen() {
                                 key={item.id}
                                 style={styles.trendingCard}
                                 activeOpacity={0.8}
-                                onPress={() => router.push(item.link as any)}
+                                onPress={() => handlePress(item.link)}
                             >
                                 <Image source={{ uri: item.image }} style={styles.trendingImg} contentFit="cover" />
                                 <View style={styles.trendingContent}>
@@ -235,7 +354,6 @@ export default function HomeScreen() {
                         ))}
                     </ScrollView>
                 </View>
-
 
                 {/* 7. Trust Markers */}
                 <View style={styles.trustSection}>
@@ -254,8 +372,6 @@ export default function HomeScreen() {
                         <Text style={styles.trustText}>Shark Tank</Text>
                     </View>
                 </View>
-
-                {/* 8. Popular Packages - REMOVED */}
 
                 {/* 9. Before & After Gallery */}
                 <View style={styles.section}>
@@ -285,67 +401,35 @@ export default function HomeScreen() {
                     </ScrollView>
                 </View>
 
-                {/* 10. Expert Dermatologists - Premium Banner Style */}
+                {/* 10. Expert Dermatologists */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Meet Our Experts</Text>
                         <TouchableOpacity><Text style={styles.seeAll}>View All</Text></TouchableOpacity>
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-                        {/* Doctor 1 */}
-                        <TouchableOpacity
-                            style={styles.doctorCard}
-                            activeOpacity={0.9}
-                            onPress={() => Alert.alert('Dr. Priya Sharma', 'Senior Dermatologist with 10+ years of experience.\n\nSpecialty: Acne & Anti-Aging\n\nConsultation Fee: ₹1500')}
-                        >
-                            <Image source={{ uri: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=2070&auto=format&fit=crop' }} style={styles.doctorImg} contentFit="cover" />
-                            <View style={styles.verifiedBadge}>
-                                <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                                <Text style={styles.verifiedText}>Verified</Text>
-                            </View>
-                            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.doctorOverlay}>
-                                <Text style={styles.doctorName}>Dr. Priya Sharma</Text>
-                                <Text style={styles.doctorSpec}>Senior Dermatologist</Text>
-                                <View style={styles.doctorRating}>
-                                    <Ionicons name="star" size={12} color="#FFB800" />
-                                    <Text style={styles.doctorRatingText}>4.9 (500+ Reviews)</Text>
+                        {doctors.map((doc) => (
+                            <TouchableOpacity
+                                key={doc.id}
+                                style={styles.doctorCard}
+                                activeOpacity={0.9}
+                                onPress={() => handleDoctorPress(doc)}
+                            >
+                                <Image source={{ uri: doc.image }} style={styles.doctorImg} contentFit="cover" />
+                                <View style={styles.verifiedBadge}>
+                                    <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
+                                    <Text style={styles.verifiedText}>Verified</Text>
                                 </View>
-                            </LinearGradient>
-                        </TouchableOpacity>
-
-                        {/* Doctor 2 */}
-                        <TouchableOpacity style={styles.doctorCard} activeOpacity={0.9} onPress={() => Alert.alert('Dr. Rahul Mehta', 'Leading Cosmetologist.\n\nSpecialty: Hair Treatments\n\nConsultation Fee: ₹1200')}>
-                            <Image source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=2070&auto=format&fit=crop' }} style={styles.doctorImg} contentFit="cover" />
-                            <View style={styles.verifiedBadge}>
-                                <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                                <Text style={styles.verifiedText}>Verified</Text>
-                            </View>
-                            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.doctorOverlay}>
-                                <Text style={styles.doctorName}>Dr. Rahul Mehta</Text>
-                                <Text style={styles.doctorSpec}>Cosmetologist</Text>
-                                <View style={styles.doctorRating}>
-                                    <Ionicons name="star" size={12} color="#FFB800" />
-                                    <Text style={styles.doctorRatingText}>4.8 (450+ Reviews)</Text>
-                                </View>
-                            </LinearGradient>
-                        </TouchableOpacity>
-
-                        {/* Doctor 3 */}
-                        <TouchableOpacity style={styles.doctorCard} activeOpacity={0.9} onPress={() => Alert.alert('Dr. Anjali Gupta', 'Renowned Skin Specialist.\n\nSpecialty: Laser Therapy\n\nConsultation Fee: ₹1800')}>
-                            <Image source={{ uri: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=2070&auto=format&fit=crop' }} style={styles.doctorImg} contentFit="cover" />
-                            <View style={styles.verifiedBadge}>
-                                <Ionicons name="checkmark-circle" size={14} color="#4CAF50" />
-                                <Text style={styles.verifiedText}>Verified</Text>
-                            </View>
-                            <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.doctorOverlay}>
-                                <Text style={styles.doctorName}>Dr. Anjali Gupta</Text>
-                                <Text style={styles.doctorSpec}>Skin Specialist</Text>
-                                <View style={styles.doctorRating}>
-                                    <Ionicons name="star" size={12} color="#FFB800" />
-                                    <Text style={styles.doctorRatingText}>5.0 (600+ Reviews)</Text>
-                                </View>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.doctorOverlay}>
+                                    <Text style={styles.doctorName}>{doc.name}</Text>
+                                    <Text style={styles.doctorSpec}>{doc.specialty}</Text>
+                                    <View style={styles.doctorRating}>
+                                        <Ionicons name="star" size={12} color="#FFB800" />
+                                        <Text style={styles.doctorRatingText}>{doc.rating} ({doc.reviews} Reviews)</Text>
+                                    </View>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        ))}
                     </ScrollView>
                 </View>
 
@@ -404,7 +488,7 @@ export default function HomeScreen() {
                     </ScrollView>
                 </View>
 
-                {/* 12. Why Choose Pretty Me - Clean Grid */}
+                {/* 12. Why Choose Pretty Me */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { paddingHorizontal: 20, marginBottom: 15 }]}>Why Choose PrettyMe?</Text>
                     <View style={styles.benefitsGrid}>
@@ -448,7 +532,7 @@ export default function HomeScreen() {
                 </View>
 
                 {/* 13. Special Offer Banner */}
-                <TouchableOpacity style={styles.offerBanner} onPress={() => router.push('/categories')}>
+                <TouchableOpacity style={styles.offerBanner} onPress={() => handlePress('/categories')}>
                     <LinearGradient colors={['#FF6F61', '#C44569']} style={styles.offerGradient}>
                         <View>
                             <Text style={styles.offerTitle}>Limited Time Offer!</Text>
@@ -460,29 +544,115 @@ export default function HomeScreen() {
 
             </ScrollView>
 
-            {/* Bottom Nav */}
-            <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 10 }]}>
-                <View style={styles.navItem}>
-                    <Ionicons name="home" size={24} color="#000" />
-                    <Text style={[styles.navText, { color: '#000', fontWeight: 'bold' }]}>Home</Text>
+            {/* Doctor Details Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={doctorModalVisible}
+                onRequestClose={() => setDoctorModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {selectedDoctor && bookingStep === 'details' && (
+                                <>
+                                    <Image source={{ uri: selectedDoctor.image }} style={styles.modalImg} contentFit="cover" />
+                                    <View style={styles.modalHeader}>
+                                        <Text style={styles.modalTitle}>{selectedDoctor.name}</Text>
+                                        <View style={styles.verifiedBadge}>
+                                            <Ionicons name="checkmark-circle" size={16} color="#4CAF50" />
+                                            <Text style={styles.verifiedText}>Verified Professional</Text>
+                                        </View>
+                                    </View>
+
+                                    <Text style={styles.modalSpec}>{selectedDoctor.specialty} • {selectedDoctor.exp} Experience</Text>
+
+                                    <View style={styles.modalRating}>
+                                        <Ionicons name="star" size={16} color="#FFB800" />
+                                        <Text style={{ fontWeight: 'bold' }}> {selectedDoctor.rating}</Text>
+                                        <Text style={{ color: '#666' }}> ({selectedDoctor.reviews} reviews)</Text>
+                                    </View>
+
+                                    <View style={styles.divider} />
+
+                                    <Text style={styles.modalSectionTitle}>About Doctor</Text>
+                                    <Text style={styles.modalDesc}>{selectedDoctor.desc}</Text>
+
+                                    <View style={styles.modalFeeContainer}>
+                                        <Text style={styles.modalFeeLabel}>Consultation Fee</Text>
+                                        <Text style={styles.modalFee}>₹{selectedDoctor.fee}</Text>
+                                    </View>
+
+                                    <TouchableOpacity style={styles.bookBtn} onPress={() => {
+                                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                        setBookingStep('form');
+                                    }}>
+                                        <Text style={styles.bookBtnText}>Book Appointment</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+
+                            {selectedDoctor && bookingStep === 'form' && (
+                                <>
+                                    <View style={styles.modalHeader}>
+                                        <TouchableOpacity onPress={() => setBookingStep('details')}>
+                                            <Ionicons name="arrow-back" size={24} color="#000" />
+                                        </TouchableOpacity>
+                                        <Text style={[styles.modalTitle, { marginLeft: 10 }]}>Confirm Booking</Text>
+                                    </View>
+
+                                    <View style={{ marginBottom: 20, marginTop: 10 }}>
+                                        <Text style={styles.modalSectionTitle}>Your Details</Text>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.inputLabel}>Select Date</Text>
+                                            <TextInput
+                                                style={styles.modalInput}
+                                                value={selectedDate}
+                                                onChangeText={setSelectedDate}
+                                                placeholder="DD/MM/YYYY"
+                                            />
+                                        </View>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.inputLabel}>Select Time</Text>
+                                            <TextInput
+                                                style={styles.modalInput}
+                                                value={selectedTime}
+                                                onChangeText={setSelectedTime}
+                                                placeholder="e.g. 10:00 AM"
+                                            />
+                                        </View>
+
+                                        <View style={styles.inputGroup}>
+                                            <Text style={styles.inputLabel}>Address</Text>
+                                            <TextInput
+                                                style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
+                                                value={address}
+                                                onChangeText={setAddress}
+                                                multiline
+                                                placeholder="Enter your address"
+                                            />
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.modalFeeContainer}>
+                                        <Text style={styles.modalFeeLabel}>Total to Pay</Text>
+                                        <Text style={styles.modalFee}>₹{selectedDoctor.fee}</Text>
+                                    </View>
+
+                                    <TouchableOpacity style={styles.bookBtn} onPress={confirmDoctorBooking}>
+                                        <Text style={styles.bookBtnText}>Confirm & Pay</Text>
+                                    </TouchableOpacity>
+                                </>
+                            )}
+                        </ScrollView>
+                        <TouchableOpacity style={styles.closeModalBtn} onPress={() => setDoctorModalVisible(false)}>
+                            <Ionicons name="close" size={24} color="#000" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/categories')}>
-                    <Ionicons name="grid-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Categories</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/bookings')}>
-                    <Ionicons name="calendar-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Book</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/support')}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Support</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/account')}>
-                    <Ionicons name="person-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Account</Text>
-                </TouchableOpacity>
-            </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -957,16 +1127,18 @@ const styles = StyleSheet.create({
     // Reviews
     reviewCard: {
         width: 300,
+        minHeight: 180,
         backgroundColor: '#fff',
         borderRadius: 20,
-        padding: 20,
+        padding: 24,
         marginRight: 15,
         shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 10,
-        elevation: 3,
+        shadowOpacity: 0.08,
+        shadowRadius: 15,
+        elevation: 4,
         borderWidth: 1,
-        borderColor: '#f0f0f0',
+        borderColor: '#e0e0e0',
+        justifyContent: 'space-between',
     },
     reviewHeader: {
         flexDirection: 'row',
@@ -1004,13 +1176,16 @@ const styles = StyleSheet.create({
     },
     reviewText: {
         fontSize: 14,
-        color: '#555',
-        lineHeight: 22,
-        marginBottom: 10,
+        color: '#444',
+        lineHeight: 24,
+        marginBottom: 15,
+        fontFamily: 'Inter_400Regular',
     },
     reviewDate: {
         fontSize: 12,
-        color: '#999',
+        color: '#888',
+        fontFamily: 'Inter_500Medium',
+        alignSelf: 'flex-start',
     },
     // Benefits / Why Choose
     benefitsGrid: {
@@ -1087,26 +1262,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 13,
     },
-    // Bottom Nav
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        backgroundColor: '#fff',
-        position: 'absolute',
-        bottom: 0,
-        width: '100%',
-        paddingBottom: 5,
-    },
-    navItem: {
-        alignItems: 'center',
-    },
-    navText: {
-        marginTop: 4,
-        color: '#999',
-    },
     paginationContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
@@ -1125,5 +1280,124 @@ const styles = StyleSheet.create({
         width: 20, // Elongated active dot for modern feel
         height: 8,
         borderRadius: 4,
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        padding: 20,
+        height: '85%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 5,
+    },
+    modalImg: {
+        width: '100%',
+        height: 250,
+        borderRadius: 20,
+        marginBottom: 20,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 5,
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#333',
+        flex: 1,
+    },
+    modalSpec: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 10,
+        fontWeight: '500',
+    },
+    modalRating: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalSectionTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 10,
+        marginTop: 10,
+    },
+    modalDesc: {
+        fontSize: 14,
+        color: '#555',
+        lineHeight: 22,
+        marginBottom: 20,
+    },
+    modalFeeContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+        backgroundColor: '#F9F9F9',
+        padding: 15,
+        borderRadius: 12,
+    },
+    modalFeeLabel: {
+        fontSize: 14,
+        color: '#333',
+        fontWeight: '500',
+    },
+    modalFee: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    bookBtn: {
+        backgroundColor: '#000',
+        paddingVertical: 16,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    bookBtnText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    closeModalBtn: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: '#fff',
+        padding: 8,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    inputGroup: {
+        marginBottom: 15,
+    },
+    inputLabel: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#666',
+        marginBottom: 8,
+    },
+    modalInput: {
+        backgroundColor: '#f5f5f5',
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 14,
+        color: '#000',
     },
 });

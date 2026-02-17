@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -32,12 +33,15 @@ const menData = [
 
 export default function CategoriesScreen() {
     const router = useRouter();
-    const insets = useSafeAreaInsets();
     const [selectedGender, setSelectedGender] = useState<'Women' | 'Men'>('Women');
+
+    const handlePress = (route: string) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push(route as any);
+    };
 
     const currentData = selectedGender === 'Women' ? womenData : menData;
     const trendingItems = currentData.filter(item => item.trending);
-    const otherItems = currentData.filter(item => !item.trending);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -50,13 +54,19 @@ export default function CategoriesScreen() {
                     <View style={styles.toggleContainer}>
                         <TouchableOpacity
                             style={[styles.toggleBtn, selectedGender === 'Women' && styles.toggleBtnActive]}
-                            onPress={() => setSelectedGender('Women')}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setSelectedGender('Women');
+                            }}
                         >
                             <Text style={[styles.toggleText, selectedGender === 'Women' && styles.textActive]}>Women</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.toggleBtn, selectedGender === 'Men' && styles.toggleBtnActive]}
-                            onPress={() => setSelectedGender('Men')}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setSelectedGender('Men');
+                            }}
                         >
                             <Text style={[styles.toggleText, selectedGender === 'Men' && styles.textActive]}>Men</Text>
                         </TouchableOpacity>
@@ -78,7 +88,7 @@ export default function CategoriesScreen() {
 
                 {/* Featured Banner */}
                 <View style={styles.bannerSection}>
-                    <TouchableOpacity style={styles.featuredBanner} onPress={() => router.push('/service/laser-hair-reduction')}>
+                    <TouchableOpacity style={styles.featuredBanner} onPress={() => handlePress('/service/laser-hair-reduction')}>
                         <Image
                             source={{ uri: 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8' }}
                             style={styles.bannerImg}
@@ -134,7 +144,7 @@ export default function CategoriesScreen() {
                         <TouchableOpacity
                             key={item.id}
                             style={styles.trendingCard}
-                            onPress={() => router.push(`/service/${item.id}`)}
+                            onPress={() => handlePress(`/service/${item.id}`)}
                         >
                             <Image source={{ uri: item.image }} style={styles.trendingImg} contentFit="cover" />
                             <View style={styles.trendingInfo}>
@@ -166,7 +176,7 @@ export default function CategoriesScreen() {
                         <TouchableOpacity
                             key={item.id + 'grid'}
                             style={styles.gridCard}
-                            onPress={() => router.push(`/service/${item.id}`)}
+                            onPress={() => handlePress(`/service/${item.id}`)}
                         >
                             <Image source={{ uri: item.image }} style={styles.gridImg} contentFit="cover" />
                             <View style={styles.gridContent}>
@@ -193,31 +203,6 @@ export default function CategoriesScreen() {
                 </View>
 
             </ScrollView>
-
-            {/* Bottom Nav */}
-            <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 10 }]}>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/home')}>
-                    <Ionicons name="home-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Home</Text>
-                </TouchableOpacity>
-                <View style={styles.navItem}>
-                    <Ionicons name="grid" size={24} color="#000" />
-                    <Text style={[styles.navText, { color: '#000', fontWeight: 'bold' }]}>Categories</Text>
-                </View>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/bookings')}>
-                    <Ionicons name="calendar-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Book</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/support')}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Support</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => router.push('/account')}>
-                    <Ionicons name="person-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Account</Text>
-                </TouchableOpacity>
-            </View>
-
         </SafeAreaView>
     );
 }
@@ -540,6 +525,7 @@ const styles = StyleSheet.create({
     gridReviews: {
         fontSize: 12,
         color: '#999',
+        paddingLeft: 4,
     },
     gridPrice: {
         fontSize: 14,
@@ -550,26 +536,5 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
         padding: 8,
         borderRadius: 20,
-    },
-    // Bottom Nav
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        backgroundColor: '#fff',
-        position: 'absolute',
-        bottom: 0,
-        width: '100%',
-        paddingBottom: 5,
-    },
-    navItem: {
-        alignItems: 'center',
-    },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
-        color: '#999',
     },
 });

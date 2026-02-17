@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -31,11 +32,12 @@ export default function BookingsScreen() {
     );
 
     const navigateTo = (route: string) => {
-        if (route === 'home') router.push('/home');
-        if (route === 'categories') router.push('/categories');
-        if (route === 'bookings') router.push('/bookings');
-        if (route === 'support') router.push('/support');
-        if (route === 'account') router.push('/account');
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (route === 'home') router.push('/home' as any);
+        if (route === 'categories') router.push('/categories' as any);
+        if (route === 'bookings') router.push('/bookings' as any);
+        if (route === 'support') router.push('/support' as any);
+        if (route === 'account') router.push('/account' as any);
     };
 
     // State for Modals
@@ -46,6 +48,7 @@ export default function BookingsScreen() {
     const [newTime, setNewTime] = useState('');
 
     const handleReschedule = (booking: any) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedBooking(booking);
         setNewDate(booking.date);
         setNewTime(booking.time || '10:00 AM');
@@ -55,31 +58,55 @@ export default function BookingsScreen() {
     const confirmReschedule = async () => {
         if (!selectedBooking) return;
 
-        const updatedBookings = bookings.map(b =>
-            b.id === selectedBooking.id ? { ...b, date: newDate, time: newTime, status: 'Rescheduled' } : b
-        );
+        setBookings(currentBookings => {
+            const updatedBookings = currentBookings.map(b =>
+                String(b.id) === String(selectedBooking.id) ? { ...b, date: newDate, time: newTime, status: 'Rescheduled' } : b
+            );
+            AsyncStorage.setItem('bookings', JSON.stringify(updatedBookings)).catch(err => console.error(err));
+            return updatedBookings;
+        });
 
-        setBookings(updatedBookings);
-        await AsyncStorage.setItem('bookings', JSON.stringify(updatedBookings));
         setRescheduleModalVisible(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert('Success', 'Booking Rescheduled Successfully');
     };
 
     const handleViewDetails = (booking: any) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setSelectedBooking(booking);
         setDetailsModalVisible(true);
     };
 
     const handleCancelBooking = (id: string) => {
+        if (!id) return;
+
         Alert.alert('Cancel Booking', 'Are you sure you want to cancel this booking?', [
             { text: 'No, Keep It', style: 'cancel' },
             {
-                text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
-                    const updatedBookings = bookings.filter(b => b.id !== id);
-                    setBookings(updatedBookings);
-                    await AsyncStorage.setItem('bookings', JSON.stringify(updatedBookings));
-                    setDetailsModalVisible(false);
-                    Alert.alert('Cancelled', 'Your booking has been cancelled.');
+                text: 'Yes, Cancel',
+                style: 'destructive',
+                onPress: async () => {
+                    try {
+                        // Create new array excluding the cancelled booking
+                        const updatedBookings = bookings.filter(b => String(b.id) !== String(id));
+
+                        // Update UI immediately
+                        setBookings(updatedBookings);
+                        setDetailsModalVisible(false);
+
+                        // Update Storage
+                        await AsyncStorage.setItem('bookings', JSON.stringify(updatedBookings));
+
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+                        // Optional: Show confirmation (delayed to avoid modal overlap)
+                        // setTimeout(() => {
+                        //     Alert.alert('Cancelled', 'Your booking has been cancelled.');
+                        // }, 500);
+                    } catch (error) {
+                        console.error("Error cancelling", error);
+                        Alert.alert("Error", "Could not cancel booking. Please try again.");
+                    }
                 }
             }
         ]);
@@ -221,11 +248,11 @@ export default function BookingsScreen() {
                                     <Text style={[styles.detailValue, { color: '#E67E22', fontWeight: 'bold' }]}>{selectedBooking.status}</Text>
                                 </View>
 
-                                <TouchableOpacity style={[styles.saveBtn, { marginTop: 20 }]} onPress={() => setDetailsModalVisible(false)}>
+                                <TouchableOpacity style={[styles.saveBtn, { marginTop: 20, flex: 0, width: '100%' }]} onPress={() => setDetailsModalVisible(false)}>
                                     <Text style={styles.saveText}>Close</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={[styles.cancelBtn, { marginTop: 10, backgroundColor: '#FFF5F5' }]} onPress={() => handleCancelBooking(selectedBooking.id)}>
+                                <TouchableOpacity style={[styles.cancelBtn, { marginTop: 10, backgroundColor: '#FFF5F5', flex: 0, width: '100%' }]} onPress={() => handleCancelBooking(selectedBooking.id)}>
                                     <Text style={[styles.cancelText, { color: '#FF4d4d' }]}>Cancel Booking</Text>
                                 </TouchableOpacity>
                             </View>
@@ -237,31 +264,6 @@ export default function BookingsScreen() {
                     )}
                 </View>
             </Modal>
-
-            {/* Bottom Nav */}
-            <View style={[styles.bottomNav, { paddingBottom: insets.bottom + 10 }]}>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('home')}>
-                    <Ionicons name="home-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Home</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('categories')}>
-                    <Ionicons name="grid-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Categories</Text>
-                </TouchableOpacity>
-                <View style={styles.navItem}>
-                    <Ionicons name="calendar" size={24} color="#000" />
-                    <Text style={[styles.navText, { color: '#000', fontWeight: 'bold' }]}>Bookings</Text>
-                </View>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('support')}>
-                    <Ionicons name="chatbubble-ellipses-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Support</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.navItem} onPress={() => navigateTo('account')}>
-                    <Ionicons name="person-outline" size={24} color="#999" />
-                    <Text style={styles.navText}>Account</Text>
-                </TouchableOpacity>
-            </View>
-
         </SafeAreaView>
     );
 }
@@ -271,6 +273,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F8F8F8', // Slightly grey background for list
     },
+    // ... (rest of styles preserved)
     header: {
         alignItems: 'center',
         paddingVertical: 15,
@@ -285,7 +288,6 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         color: '#000',
     },
-    // List Styles
     listContent: {
         padding: 20,
         paddingBottom: 100, // Space for nav
@@ -371,7 +373,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#fff',
     },
-    // Empty State
     emptyContent: {
         flex: 1,
         alignItems: 'center',
@@ -412,23 +413,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         letterSpacing: 1,
     },
-    // Bottom Nav
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-        backgroundColor: '#fff',
-        position: 'absolute',
-        bottom: 0,
-        width: '100%',
-        paddingBottom: 5,
-    },
-    navItem: {
-        alignItems: 'center',
-    },
-    // Modal Styles
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -471,6 +455,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: '#f0f0f0',
         alignItems: 'center',
+        justifyContent: 'center',
     },
     saveBtn: {
         flex: 1,
@@ -478,6 +463,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         backgroundColor: '#000',
         alignItems: 'center',
+        justifyContent: 'center',
     },
     cancelText: {
         fontWeight: '600',
@@ -505,10 +491,5 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         maxWidth: '60%',
         textAlign: 'right',
-    },
-    navText: {
-        fontSize: 10,
-        marginTop: 4,
-        color: '#999',
     },
 });
